@@ -1,4 +1,4 @@
-name: Build POS EXE
+name: Build and Release
 
 on:
   push:
@@ -6,19 +6,21 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  release:
     runs-on: windows-latest
     steps:
-    - uses: actions/checkout@v4
-    - uses: actions/setup-node@v4
-      with:
-        node-version: 20
-    - run: npm install
-    - run: npm run dist
-      env:
-        GH_TOKEN: ${{ secrets.GH_TOKEN }}
+      - name: Check out Git repository
+        uses: actions/checkout@v4
 
-    - uses: actions/upload-artifact@v4
-      with:
-        name: POS-Windows-App
-        path: dist/*.exe
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build and Publish
+        run: npx electron-builder --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
