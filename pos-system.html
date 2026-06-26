@@ -212,6 +212,11 @@
   .stat-box.success .val{ color:var(--success); }
   .stat-box.danger .val{ color:var(--danger); }
   .stat-box.primary .val{ color:var(--primary); }
+  .stat-box-clickable{ cursor:pointer; transition:transform .12s, box-shadow .12s; }
+  .stat-box-clickable:hover{ box-shadow:0 2px 10px rgba(0,0,0,.15); }
+  .stat-box-clickable:active{ transform:scale(0.97); }
+  .stat-half{ cursor:pointer; border-radius:6px; padding:0 4px; transition:background .12s; }
+  .stat-half:hover{ background:rgba(0,0,0,.08); text-decoration:underline; }
 
   table{ width:100%; border-collapse:collapse; font-size:13px; }
   table th{ text-align:right; padding:9px 8px; color:var(--txt-dim); font-weight:bold; border-bottom:2px solid var(--line); font-size:12px; }
@@ -3207,11 +3212,61 @@ function renderInventoryStats(){
   const expiredCount = DB.products.filter(p=>isExpired(p)).length;
   const expiringSoonCount = DB.products.filter(p=>isExpiringSoon(p)).length;
   document.getElementById('inventoryStats').innerHTML = `
-    <div class="stat-box primary"><div class="lbl">إجمالي المنتجات</div><div class="val">${totalProducts}</div></div>
-    <div class="stat-box" style="border-color:#f3d28a;"><div class="lbl">مخزون منخفض (≤5)</div><div class="val" style="color:var(--warn);">${lowStock}</div></div>
-    <div class="stat-box danger"><div class="lbl">نفذ / عجز بالمخزون</div><div class="val">${outStock} / ${deficitCount}</div></div>
-    <div class="stat-box ${expiredCount>0?'danger':''}"><div class="lbl">منتهي / قريب الانتهاء</div><div class="val" style="color:${expiredCount>0?'var(--danger)':'var(--warn)'};">${expiredCount} / ${expiringSoonCount}</div></div>
+    <div class="stat-box primary stat-box-clickable" data-stat-filter="all"><div class="lbl">إجمالي المنتجات</div><div class="val">${totalProducts}</div></div>
+    <div class="stat-box stat-box-clickable" style="border-color:#f3d28a;" data-stat-filter="lowStock"><div class="lbl">مخزون منخفض (≤5)</div><div class="val" style="color:var(--warn);">${lowStock}</div></div>
+    <div class="stat-box danger"><div class="lbl">نفذ / عجز بالمخزون</div><div class="val">
+      <span class="stat-box-clickable stat-half" data-stat-filter="outStock">${outStock}</span> / <span class="stat-box-clickable stat-half" data-stat-filter="deficit">${deficitCount}</span>
+    </div></div>
+    <div class="stat-box ${expiredCount>0?'danger':''}"><div class="lbl">منتهي / قريب الانتهاء</div><div class="val" style="color:${expiredCount>0?'var(--danger)':'var(--warn)'};">
+      <span class="stat-box-clickable stat-half" data-stat-filter="expired">${expiredCount}</span> / <span class="stat-box-clickable stat-half" data-stat-filter="expiringSoon">${expiringSoonCount}</span>
+    </div></div>
   `;
+  document.querySelectorAll('#inventoryStats [data-stat-filter]').forEach(el=>{
+    el.addEventListener('click', ()=> openStatProductsModal(el.dataset.statFilter));
+  });
+}
+
+const STAT_FILTER_DEFS = {
+  all:          { title: 'كل المنتجات',                test: p => true },
+  lowStock:     { title: 'منتجات بمخزون منخفض (≤5)',     test: p => p.stock > 0 && p.stock <= 5 },
+  outStock:     { title: 'منتجات نفذت من المخزون',       test: p => p.stock === 0 },
+  deficit:      { title: 'منتجات بعجز بالمخزون (سالب)',   test: p => p.stock < 0 },
+  expired:      { title: 'منتجات منتهية الصلاحية',       test: p => isExpired(p) },
+  expiringSoon: { title: 'منتجات قريبة من انتهاء الصلاحية', test: p => isExpiringSoon(p) },
+};
+
+function openStatProductsModal(filterKey){
+  const def = STAT_FILTER_DEFS[filterKey];
+  if(!def) return;
+  const list = DB.products.filter(def.test);
+  openModal(`
+    <h3>${def.title} (${list.length})</h3>
+    ${list.length===0 ? `<div class="empty-state"><div class="ic">📦</div>لا توجد منتجات مطابقة</div>` : `
+      <div class="table-wrap" style="margin-bottom:14px;">
+        <table>
+          <thead><tr><th></th><th>المنتج</th><th>المخزون</th><th>الصلاحية</th></tr></thead>
+          <tbody>
+            ${list.map(p=>{
+              let expiryCell = '<span style="color:var(--txt-light); font-size:11.5px;">—</span>';
+              if(p.expiryDate){
+                if(isExpired(p)) expiryCell = `<span class="badge red">منتهي (${p.expiryDate})</span>`;
+                else if(isExpiringSoon(p)) expiryCell = `<span class="badge amber">باقي ${daysUntil(p.expiryDate)}ي</span>`;
+                else expiryCell = `<span class="badge gray">${p.expiryDate}</span>`;
+              }
+              return `<tr>
+                <td><div style="width:26px; height:26px; border-radius:6px; overflow:hidden; display:flex; align-items:center; justify-content:center; background:${p.image?'var(--panel-2)':'transparent'};">${productIconHtml(p, 16)}</div></td>
+                <td>${p.name}</td>
+                <td>${p.stock < 0 ? `<span class="badge red">عجز ${p.stock}</span>` : p.stock <= 5 ? `<span class="badge red">${p.stock}</span>` : p.stock}</td>
+                <td>${expiryCell}</td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    `}
+    <div class="modal-actions"><button class="btn btn-block" id="closeStatModal">إغلاق</button></div>
+  `);
+  document.getElementById('closeStatModal').addEventListener('click', closeModal);
 }
 
 function renderInventoryPage(){
@@ -5221,4 +5276,4 @@ function renderPayrollTable(){
 
 </script>
 </body>
-</html>
+  </html>
