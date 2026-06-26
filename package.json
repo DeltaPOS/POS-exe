@@ -11,8 +11,15 @@
     "appId": "com.pos.system",
     "publish": null,
     "win": {
-      "target": "nsis",
-      "arch": ["x64", "ia32"]
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64",
+            "ia32"
+          ]
+        }
+      ]
     }
   },
   "devDependencies": {
