@@ -1,9 +1,39 @@
-const { app, BrowserWindow, dialog } = require('electron'); // أضفنا dialog
+const { app, BrowserWindow, dialog } = require('electron');
 const { autoUpdater } = require('electron-updater');
 
-// ... (باقي كود إنشاء النافذة كما هو)
+let win;
 
-// عند توفر تحديث، اسأل الزبون
+// 1. وظيفة إنشاء النافذة (الكود الأساسي)
+function createWindow () {
+  win = new BrowserWindow({
+    width: 1200,
+    height: 800,
+    fullscreen: true,
+    autoHideMenuBar: true,
+    webPreferences: {
+      nodeIntegration: true,
+      contextIsolation: false
+    }
+  });
+
+  win.setMenuBarVisibility(false);
+  win.loadFile('pos-system.html');
+
+  // التحقق من وجود تحديث عند فتح البرنامج
+  win.once('ready-to-show', () => {
+    autoUpdater.checkForUpdatesAndNotify();
+  });
+}
+
+app.whenReady().then(createWindow);
+
+app.on('window-all-closed', () => {
+  if (process.platform !== 'darwin') {
+    app.quit();
+  }
+});
+
+// 2. وظائف التحديث (الكود الجديد الذي أضفته أنت)
 autoUpdater.on('update-available', (info) => {
   dialog.showMessageBox(win, {
     type: 'info',
@@ -12,18 +42,18 @@ autoUpdater.on('update-available', (info) => {
     buttons: ['نعم', 'لا']
   }).then((result) => {
     if (result.response === 0) {
-      autoUpdater.downloadUpdate(); // تحميل التحديث إذا ضغط "نعم"
+      autoUpdater.downloadUpdate();
     }
   });
 });
 
-// إظهار شريط التقدم للزبون أثناء التحميل
 autoUpdater.on('download-progress', (progressObj) => {
   let log_message = "جاري تحميل التحديث: " + Math.round(progressObj.percent) + "%";
-  win.webContents.send('update-message', log_message); // إرسال رسالة للواجهة
+  if (win && win.webContents) {
+    win.webContents.send('update-message', log_message);
+  }
 });
 
-// عند انتهاء التحميل، اسأل الزبون للبدء بالتثبيت
 autoUpdater.on('update-downloaded', () => {
   dialog.showMessageBox(win, {
     type: 'question',
