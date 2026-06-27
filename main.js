@@ -3,23 +3,28 @@ const { autoUpdater } = require('electron-updater');
 
 let win;
 
-// 1. وظيفة إنشاء النافذة (الكود الأساسي)
 function createWindow () {
   win = new BrowserWindow({
     width: 1200,
     height: 800,
-    fullscreen: true,
-    autoHideMenuBar: true,
+    fullscreen: false,        // لكي يظهر شريط الإغلاق والتصغير
+    frame: true,              // إبقاء الإطار ليظهر الشريط
+    autoHideMenuBar: true,    // إخفاء القوائم (File, Edit...)
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false
     }
   });
 
+  // التأكيد على إخفاء القوائم تماماً
   win.setMenuBarVisibility(false);
+  
+  // تكبير النافذة لتملا الشاشة
+  win.maximize(); 
+
   win.loadFile('pos-system.html');
 
-  // التحقق من وجود تحديث عند فتح البرنامج
+  // التحقق من التحديث عند فتح البرنامج
   win.once('ready-to-show', () => {
     autoUpdater.checkForUpdatesAndNotify();
   });
@@ -33,7 +38,7 @@ app.on('window-all-closed', () => {
   }
 });
 
-// 2. وظائف التحديث (الكود الجديد الذي أضفته أنت)
+// --- نظام التحديث التفاعلي ---
 autoUpdater.on('update-available', (info) => {
   dialog.showMessageBox(win, {
     type: 'info',
