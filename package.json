@@ -1,6 +1,6 @@
 {
   "name": "pos-system-app",
-  "productName": "نظام نقاط البيع المطور",
+  "productName": "نظام مثلث",
   "version": "1.0.1",
   "main": "main.js",
   "scripts": {
