@@ -284,7 +284,8 @@
   }
   .modal-backdrop.hidden{ display:none; }
   .modal{
-    background:var(--panel); border-radius:14px; padding:20px; width:440px; max-width:100%;
+    background:var(--panel); border-radius:14px; padding:20px;
+    width:clamp(440px, 55vw, 700px); max-width:95vw;
     max-height:88vh; overflow-y:auto;
   }
   .modal h3{ margin:0 0 16px; font-size:16px; }
@@ -472,9 +473,10 @@
     border-radius:var(--radius); padding:14px; margin-bottom:12px;
   }
   .pu-entry-grid{
-    display:grid; grid-template-columns:1fr 100px 110px 110px; gap:8px;
+    display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px;
     align-items:end;
   }
+  .pu-entry-grid .field-block:first-child{ grid-column:1 / -1; }
   .pu-entry-grid .field-block{ margin:0; }
   .pu-entry-grid input, .pu-entry-grid select{ color:var(--txt); background:var(--panel); }
   .pu-entry-grid label{ font-size:11.5px; color:var(--txt-dim); display:block; margin-bottom:4px; }
@@ -512,7 +514,7 @@
     margin-top:10px;
   }
   @media(max-width:600px){
-    .pu-entry-grid{ grid-template-columns:1fr 1fr; }
+    .pu-entry-grid{ grid-template-columns:1fr; }
   }
   #qrReaderBox video{ width:100% !important; border-radius:10px; }
   #qrReaderBox{ position:relative; }
@@ -1184,7 +1186,6 @@ function defaultDB(){
     ],
     users: [
       { id: 'u1', name: 'المدير العام', username: 'admin', password: '1234', role: 'admin', branchId: 'b1', active: true, permissions: fullAdminPermissions(), lastExpiryAlertDate:null },
-      { id: 'u2', name: 'كاشير 1', username: 'cashier', password: '1234', role: 'cashier', branchId: 'b1', active: true, permissions: defaultCashierPermissions(), lastExpiryAlertDate:null },
     ],
     categories: [
       { id: 'c1', name: 'مشروبات' },
@@ -1242,7 +1243,7 @@ function defaultDB(){
       { id: 'ec_other', name: 'أخرى' },
     ],
     session: null,
-    seq: { product:7, category:4, branch:2, user:3, customer:2, supplier:2, employee:1, payroll:1, purchase:1, cashLog:1, installment:1, quote:1, sale:1, stockLog:1, shortcut:6, heldOrder:1, paymentMethod:3, expenseCategory:5, debt:1 },
+    seq: { product:7, category:4, branch:2, user:1, customer:2, supplier:2, employee:1, payroll:1, purchase:1, cashLog:1, installment:1, quote:1, sale:1, stockLog:1, shortcut:6, heldOrder:1, paymentMethod:3, expenseCategory:5, debt:1 },
   };
 }
 
@@ -5779,4 +5780,4 @@ function renderPayrollTable(){
     </script>
 
 </body>
-  </html>
+            </html>
