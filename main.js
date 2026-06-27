@@ -1,41 +1,38 @@
-const { app, BrowserWindow } = require('electron');
+const { app, BrowserWindow, dialog } = require('electron'); // أضفنا dialog
 const { autoUpdater } = require('electron-updater');
-const path = require('path');
 
-let win;
+// ... (باقي كود إنشاء النافذة كما هو)
 
-function createWindow () {
-  win = new BrowserWindow({
-    width: 1200,
-    height: 800,
-    // إخفاء القوائم والشاشة الكاملة
-    autoHideMenuBar: true, 
-    fullscreen: true,
-    webPreferences: {
-      nodeIntegration: true,
-      contextIsolation: false
+// عند توفر تحديث، اسأل الزبون
+autoUpdater.on('update-available', (info) => {
+  dialog.showMessageBox(win, {
+    type: 'info',
+    title: 'تحديث جديد متاح',
+    message: 'يوجد تحديث جديد لنظام مبيعات مثلث. هل تود تحميله الآن؟',
+    buttons: ['نعم', 'لا']
+  }).then((result) => {
+    if (result.response === 0) {
+      autoUpdater.downloadUpdate(); // تحميل التحديث إذا ضغط "نعم"
     }
   });
-
-  // التأكيد على إخفاء شريط القوائم العلوي تماماً
-  win.setMenuBarVisibility(false);
-
-  win.loadFile('pos-system.html');
-
-  // فحص التحديثات
-  win.once('ready-to-show', () => {
-    autoUpdater.checkForUpdatesAndNotify();
-  });
-}
-
-app.whenReady().then(createWindow);
-
-autoUpdater.on('update-downloaded', () => {
-  autoUpdater.quitAndInstall();
 });
 
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit();
-  }
+// إظهار شريط التقدم للزبون أثناء التحميل
+autoUpdater.on('download-progress', (progressObj) => {
+  let log_message = "جاري تحميل التحديث: " + Math.round(progressObj.percent) + "%";
+  win.webContents.send('update-message', log_message); // إرسال رسالة للواجهة
+});
+
+// عند انتهاء التحميل، اسأل الزبون للبدء بالتثبيت
+autoUpdater.on('update-downloaded', () => {
+  dialog.showMessageBox(win, {
+    type: 'question',
+    title: 'جاهز للتثبيت',
+    message: 'تم تحميل التحديث. هل تود إعادة تشغيل البرنامج وتثبيته الآن؟',
+    buttons: ['إعادة تشغيل وتثبيت', 'لاحقاً']
+  }).then((result) => {
+    if (result.response === 0) {
+      autoUpdater.quitAndInstall();
+    }
+  });
 });
