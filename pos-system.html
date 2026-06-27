@@ -5730,5 +5730,18 @@ function renderPayrollTable(){
 }
 
 </script>
+    <div id="update-status" style="position: fixed; bottom: 10px; right: 10px; background: #3498db; color: #fff; padding: 10px; border-radius: 5px; display: none; z-index: 9999;">
+    </div>
+
+    <script>
+      const { ipcRenderer } = require('electron');
+      const statusDiv = document.getElementById('update-status');
+
+      ipcRenderer.on('update-message', (event, message) => {
+        statusDiv.style.display = 'block';
+        statusDiv.innerText = message;
+      });
+    </script>
+
 </body>
   </html>
