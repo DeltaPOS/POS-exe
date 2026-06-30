@@ -15,8 +15,20 @@
         {
           "target": "nsis",
           "arch": ["x64", "ia32"]
+        },
+        {
+          "target": "appx",
+          "arch": ["x64"]
         }
       ]
+    },
+    "appx": {
+      "identityName": "Deltapos",
+      "publisher": "CN=Deltapos",
+      "publisherDisplayName": "Deltapos",
+      "applicationId": "Deltapos",
+      "displayName": "Deltapos",
+      "languages": ["ar-SA", "en-US"]
     }
   },
   "devDependencies": {
