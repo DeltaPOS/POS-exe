@@ -6,7 +6,7 @@
   "release_notes_en": "Updates and improvements to Mithlath POS System.",
   "downloads": {
     "windows": {
-      "url": "https://github.com/DeltaPOS/POS-exe/releases/download/v1.1.0/pos-system-app-setup-1.1.0.exe",
+      "url": "https://github.com/DeltaPOS/POS-exe/releases/download/v1.1.2/pos-system-app-setup-1.1.2.exe",
       "size_mb": 136,
       "min_os": "Windows 10 64-bit"
     },
