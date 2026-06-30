@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>نظام مثلث | نظام كاشير ومبيعات متكامل</title>
+<meta name="description" content="نظام مثلث - نظام كاشير ومبيعات متكامل لإدارة محلك بسرعة ودقة">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#15191c;
+    --paper:#f6f4ee;
+    --paper-deep:#ece8de;
+    --brass:#b8893f;
+    --brass-bright:#d9a85c;
+    --green-receipt:#2f5d4f;
+    --line:#d8d2c2;
+    --white:#fffdf8;
+    --shadow: 0 20px 50px -25px rgba(21,25,28,0.35);
+  }
+
+  *{margin:0;padding:0;box-sizing:border-box;}
+
+  html{scroll-behavior:smooth;}
+
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'IBM Plex Sans Arabic', 'Tajawal', sans-serif;
+    line-height:1.7;
+    overflow-x:hidden;
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    *{animation-duration:0.01ms !important; animation-iteration-count:1 !important; transition-duration:0.01ms !important; scroll-behavior:auto !important;}
+  }
+
+  ::selection{background:var(--brass-bright); color:var(--ink);}
+
+  a{color:inherit; text-decoration:none;}
+
+  .mono{font-family:'JetBrains Mono', monospace;}
+
+  .container{
+    max-width:1180px;
+    margin:0 auto;
+    padding:0 32px;
+  }
+
+  /* ===== Background grain / receipt-paper texture ===== */
+  .grain-layer{
+    position:fixed; inset:0; z-index:0; pointer-events:none;
+    opacity:0.05;
+    background-image: repeating-linear-gradient(0deg, var(--ink) 0px, transparent 1px, transparent 2px, var(--ink) 3px);
+    background-size: 3px 3px;
+  }
+
+  /* ===== NAV ===== */
+  nav{
+    position:sticky; top:0; z-index:50;
+    background:rgba(246,244,238,0.86);
+    backdrop-filter:blur(10px);
+    border-bottom:1px solid var(--line);
+  }
+  .nav-inner{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:18px 32px;
+    max-width:1180px;
+    margin:0 auto;
+  }
+  .nav-brand{
+    display:flex; align-items:center; gap:10px;
+    font-weight:900; font-size:1.15rem;
+    letter-spacing:0.3px;
+  }
+  .nav-tri{
+    width:18px; height:18px;
+    position:relative;
+    flex-shrink:0;
+  }
+  .nav-tri svg{width:100%;height:100%;display:block;}
+  .nav-links{display:flex; gap:34px; font-size:0.95rem; font-weight:500;}
+  .nav-links a{opacity:0.75; transition:opacity 0.2s;}
+  .nav-links a:hover{opacity:1;}
+  .nav-cta{
+    background:var(--ink); color:var(--white);
+    padding:10px 22px; border-radius:7px;
+    font-weight:700; font-size:0.92rem;
+    transition:transform 0.15s ease, background 0.15s ease;
+  }
+  .nav-cta:hover{background:var(--green-receipt); transform:translateY(-1px);}
+
+  @media(max-width:760px){
+    .nav-links{display:none;}
+  }
+
+  /* ===== HERO ===== */
+  .hero{
+    position:relative; z-index:1;
+    padding:110px 0 90px;
+    overflow:hidden;
+  }
+  .hero-grid{
+    display:grid;
+    grid-template-columns:1.05fr 0.95fr;
+    gap:60px;
+    align-items:center;
+  }
+  @media(max-width:900px){
+    .hero-grid{grid-template-columns:1fr; gap:50px;}
+  }
+
+  .eyebrow{
+    display:inline-flex; align-items:center; gap:10px;
+    font-family:'JetBrains Mono', monospace;
+    font-size:0.78rem; letter-spacing:1.5px;
+    color:var(--green-receipt);
+    background:rgba(47,93,79,0.08);
+    border:1px solid rgba(47,93,79,0.25);
+    padding:7px 14px; border-radius:30px;
+    margin-bottom:28px;
+  }
+  .eyebrow .dot{width:6px;height:6px;border-radius:50%; background:var(--green-receipt); animation:pulse 2s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;} 50%{opacity:0.3;}}
+
+  h1{
+    font-family:'Tajawal', sans-serif;
+    font-weight:900;
+    font-size:clamp(2.6rem, 5.2vw, 4.2rem);
+    line-height:1.15;
+    letter-spacing:-0.5px;
+    margin-bottom:26px;
+  }
+  h1 .accent{
+    color:var(--brass);
+    position:relative;
+    display:inline-block;
+  }
+
+  .hero-desc{
+    font-size:1.18rem;
+    color:#454b4f;
+    max-width:520px;
+    margin-bottom:40px;
+  }
+
+  .hero-ctas{display:flex; gap:14px; flex-wrap:wrap; margin-bottom:36px;}
+
+  .btn{
+    display:inline-flex; align-items:center; gap:10px;
+    padding:16px 26px;
+    border-radius:9px;
+    font-weight:700; font-size:1rem;
+    transition:transform 0.18s ease, box-shadow 0.18s ease;
+    cursor:pointer;
+    border:none;
+  }
+  .btn-primary{
+    background:var(--ink); color:var(--white);
+    box-shadow:var(--shadow);
+  }
+  .btn-primary:hover{transform:translateY(-2px) scale(1.01);}
+  .btn-secondary{
+    background:transparent; color:var(--ink);
+    border:1.5px solid var(--line);
+  }
+  .btn-secondary:hover{border-color:var(--ink); background:rgba(21,25,28,0.04);}
+  .btn svg{flex-shrink:0;}
+
+  .trust-row{
+    display:flex; gap:26px; flex-wrap:wrap;
+    font-size:0.88rem; color:#6b716f;
+  }
+  .trust-row span{display:flex; align-items:center; gap:7px;}
+  .trust-row svg{flex-shrink:0; color:var(--green-receipt);}
+
+  /* ===== Hero visual: the receipt / triangle device ===== */
+  .hero-visual{
+    position:relative;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .receipt-card{
+    background:var(--white);
+    border-radius:14px;
+    box-shadow:var(--shadow);
+    width:100%;
+    max-width:380px;
+    padding:0;
+    transform:rotate(-2deg);
+    position:relative;
+    border:1px solid var(--line);
+    overflow:hidden;
+    animation:floatUp 0.9s cubic-bezier(.16,1,.3,1) both;
+  }
+  @keyframes floatUp{
+    from{opacity:0; transform:translateY(24px) rotate(-2deg);}
+    to{opacity:1; transform:translateY(0) rotate(-2deg);}
+  }
+  .receipt-top{
+    background:var(--ink); color:var(--white);
+    padding:20px 24px;
+    display:flex; align-items:center; justify-content:space-between;
+  }
+  .receipt-top .tri-mark{width:26px;height:26px;}
+  .receipt-status{
+    font-family:'JetBrains Mono',monospace; font-size:0.72rem;
+    background:rgba(255,255,255,0.12); padding:4px 10px; border-radius:20px;
+    display:flex; align-items:center; gap:6px;
+  }
+  .receipt-status .dot{width:5px;height:5px;border-radius:50%;background:#6fe3a3;}
+
+  .receipt-body{padding:26px 24px 10px;}
+  .receipt-line{
+    display:flex; justify-content:space-between;
+    font-size:0.93rem; padding:9px 0;
+    border-bottom:1px dashed var(--line);
+  }
+  .receipt-line .name{color:#3a3f42;}
+  .receipt-line .val{font-family:'JetBrains Mono',monospace; font-weight:500;}
+  .receipt-total{
+    display:flex; justify-content:space-between;
+    padding:18px 24px; margin-top:6px;
+    background:var(--paper-deep);
+    font-weight:800; font-size:1.1rem;
+  }
+  .receipt-total .val{font-family:'JetBrains Mono',monospace; color:var(--green-receipt);}
+  .receipt-edge{
+    height:14px;
+    background:
+      linear-gradient(135deg, var(--white) 50%, transparent 50%) 0 0/14px 14px repeat-x,
+      linear-gradient(-135deg, var(--white) 50%, transparent 50%) 0 0/14px 14px repeat-x;
+    background-color:var(--paper);
+  }
+
+  .float-chip{
+    position:absolute;
+    background:var(--white);
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:10px 14px;
+    box-shadow:0 12px 30px -15px rgba(21,25,28,0.3);
+    font-size:0.82rem;
+    font-weight:600;
+    display:flex; align-items:center; gap:8px;
+    animation:floatChip 4s ease-in-out infinite;
+  }
+  .chip-sync{top:-6%; left:-12%; color:var(--green-receipt); animation-delay:0s;}
+  .chip-offline{bottom:14%; right:-10%; color:var(--brass); animation-delay:1.4s;}
+  @keyframes floatChip{
+    0%,100%{transform:translateY(0);}
+    50%{transform:translateY(-9px);}
+  }
+  @media(max-width:560px){
+    .float-chip{display:none;}
+  }
+
+  /* ===== Triangle motif divider ===== */
+  .tri-divider{
+    display:flex; align-items:center; justify-content:center;
+    gap:14px;
+    padding:30px 0 10px;
+    opacity:0.5;
+  }
+  .tri-divider .ln{height:1px; flex:1; background:var(--line); max-width:200px;}
+  .tri-divider svg{width:14px; height:14px; color:var(--brass);}
+
+  /* ===== SECTION shared ===== */
+  section{position:relative; z-index:1; padding:100px 0;}
+  .section-head{max-width:640px; margin-bottom:60px;}
+  .section-eyebrow{
+    font-family:'JetBrains Mono', monospace;
+    font-size:0.78rem; letter-spacing:2px; text-transform:uppercase;
+    color:var(--brass); margin-bottom:14px; display:block;
+    font-weight:700;
+  }
+  h2{
+    font-family:'Tajawal', sans-serif;
+    font-weight:900;
+    font-size:clamp(1.9rem, 3.4vw, 2.7rem);
+    letter-spacing:-0.3px;
+    margin-bottom:18px;
+  }
+  .section-sub{color:#5b6164; font-size:1.08rem; max-width:560px;}
+
+  /* ===== Features — 3 corners of the triangle ===== */
+  .corners-wrap{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:1px;
+    background:var(--line);
+    border:1px solid var(--line);
+    border-radius:16px;
+    overflow:hidden;
+  }
+  @media(max-width:860px){
+    .corners-wrap{grid-template-columns:1fr;}
+  }
+  .corner-card{
+    background:var(--white);
+    padding:42px 34px;
+    transition:background 0.25s ease;
+  }
+  .corner-card:hover{background:var(--paper-deep);}
+  .corner-num{
+    font-family:'JetBrains Mono',monospace;
+    font-size:0.8rem; color:var(--brass); font-weight:700;
+    margin-bottom:22px; display:block;
+  }
+  .corner-icon{
+    width:46px; height:46px;
+    background:var(--ink); border-radius:11px;
+    display:flex; align-items:center; justify-content:center;
+    color:var(--brass-bright);
+    margin-bottom:24px;
+  }
+  .corner-card h3{
+    font-family:'Tajawal',sans-serif; font-weight:700;
+    font-size:1.28rem; margin-bottom:12px;
+  }
+  .corner-card p{color:#5b6164; font-size:0.97rem;}
+
+  /* ===== Download section ===== */
+  .download-section{
+    background:var(--ink);
+    color:var(--white);
+    border-radius:26px;
+    margin:0 32px;
+    padding:70px 50px;
+    position:relative;
+    overflow:hidden;
+  }
+  .download-section::before{
+    content:'';
+    position:absolute;
+    width:600px; height:600px;
+    background:radial-gradient(circle, rgba(217,168,92,0.18), transparent 70%);
+    top:-200px; left:-150px;
+    pointer-events:none;
+  }
+  .download-inner{position:relative; z-index:1; max-width:1080px; margin:0 auto;}
+  .download-head{text-align:center; max-width:560px; margin:0 auto 50px;}
+  .download-head .section-eyebrow{color:var(--brass-bright);}
+  .download-head h2{color:var(--white);}
+  .download-head p{color:rgba(255,255,255,0.65); font-size:1.05rem;}
+
+  .platform-grid{
+    display:grid; grid-template-columns:1fr 1fr; gap:22px;
+  }
+  @media(max-width:700px){.platform-grid{grid-template-columns:1fr;}}
+
+  .platform-card{
+    background:rgba(255,255,255,0.04);
+    border:1px solid rgba(255,255,255,0.12);
+    border-radius:16px;
+    padding:34px;
+    transition:transform 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+  }
+  .platform-card:hover{
+    transform:translateY(-4px);
+    background:rgba(255,255,255,0.07);
+    border-color:rgba(217,168,92,0.4);
+  }
+  .platform-card-soon{opacity:0.78;}
+  .platform-card-soon:hover{
+    transform:none;
+    background:rgba(255,255,255,0.04);
+    border-color:rgba(255,255,255,0.12);
+  }
+  .v-tag-soon{
+    background:rgba(217,168,92,0.14);
+    color:var(--brass-bright);
+  }
+  .dl-btn.dl-btn-disabled{
+    background:rgba(255,255,255,0.08);
+    color:rgba(255,255,255,0.45);
+    cursor:default;
+  }
+  .dl-btn.dl-btn-disabled:hover{filter:none; transform:none;}
+  .platform-top{display:flex; align-items:center; gap:14px; margin-bottom:18px;}
+  .platform-icon{
+    width:50px; height:50px; border-radius:12px;
+    background:rgba(217,168,92,0.14);
+    display:flex; align-items:center; justify-content:center;
+    color:var(--brass-bright);
+    flex-shrink:0;
+  }
+  .platform-title{font-weight:800; font-size:1.18rem; font-family:'Tajawal',sans-serif;}
+  .platform-os{font-size:0.85rem; color:rgba(255,255,255,0.5); font-family:'JetBrains Mono',monospace;}
+  .platform-meta{
+    display:flex; justify-content:space-between; align-items:center;
+    font-size:0.85rem; color:rgba(255,255,255,0.55);
+    margin-bottom:22px; padding-top:16px;
+    border-top:1px dashed rgba(255,255,255,0.14);
+  }
+  .platform-meta .v-tag{
+    font-family:'JetBrains Mono',monospace;
+    background:rgba(255,255,255,0.08);
+    padding:3px 10px; border-radius:20px;
+  }
+  .dl-btn{
+    width:100%;
+    background:var(--brass-bright); color:var(--ink);
+    padding:15px 20px; border-radius:9px;
+    font-weight:800; font-size:0.98rem;
+    display:flex; align-items:center; justify-content:center; gap:10px;
+    transition:filter 0.15s ease, transform 0.15s ease;
+  }
+  .dl-btn:hover{filter:brightness(1.08); transform:translateY(-1px);}
+
+  .version-note{
+    text-align:center; margin-top:36px;
+    font-size:0.86rem; color:rgba(255,255,255,0.45);
+    font-family:'JetBrains Mono',monospace;
+  }
+  .version-note a{color:var(--brass-bright); text-decoration:underline;}
+
+  /* ===== Update mechanism section ===== */
+  .update-grid{
+    display:grid; grid-template-columns:1fr 1fr; gap:64px; align-items:center;
+  }
+  @media(max-width:900px){.update-grid{grid-template-columns:1fr; gap:44px;}}
+
+  .update-steps{display:flex; flex-direction:column; gap:0;}
+  .update-step{
+    display:flex; gap:20px;
+    padding:24px 0;
+    border-bottom:1px solid var(--line);
+  }
+  .update-step:last-child{border-bottom:none;}
+  .step-marker{
+    width:38px; height:38px; border-radius:50%;
+    background:var(--paper-deep); border:1px solid var(--line);
+    display:flex; align-items:center; justify-content:center;
+    font-family:'JetBrains Mono',monospace; font-weight:700; font-size:0.9rem;
+    color:var(--green-receipt);
+    flex-shrink:0;
+  }
+  .step-text h4{font-family:'Tajawal',sans-serif; font-weight:700; font-size:1.08rem; margin-bottom:6px;}
+  .step-text p{color:#5b6164; font-size:0.94rem;}
+
+  .json-preview{
+    background:var(--ink);
+    border-radius:16px;
+    padding:0;
+    overflow:hidden;
+    box-shadow:var(--shadow);
+  }
+  .json-bar{
+    background:#0d1012;
+    padding:13px 20px;
+    display:flex; align-items:center; gap:8px;
+  }
+  .json-dot{width:10px;height:10px;border-radius:50%;}
+  .json-bar span:nth-child(1){background:#e5615a;}
+  .json-bar span:nth-child(2){background:#e3b341;}
+  .json-bar span:nth-child(3){background:#3fb950;}
+  .json-filename{
+    margin-right:auto; font-family:'JetBrains Mono',monospace;
+    font-size:0.78rem; color:rgba(255,255,255,0.4);
+  }
+  .json-code{
+    padding:26px 24px; font-family:'JetBrains Mono',monospace;
+    font-size:0.84rem; line-height:1.9; color:#c9d1d9;
+    direction:ltr; text-align:left; overflow-x:auto;
+  }
+  .jk{color:#79c0ff;} .js{color:#a5d6ff;} .jn{color:#f0883e;} .jc{color:#8b949e;}
+
+  /* ===== Footer ===== */
+  footer{
+    border-top:1px solid var(--line);
+    padding:50px 0 36px;
+  }
+  .footer-inner{
+    display:flex; justify-content:space-between; align-items:center;
+    flex-wrap:wrap; gap:20px;
+  }
+  .footer-brand{display:flex; align-items:center; gap:10px; font-weight:800;}
+  .footer-tri{width:16px;height:16px;}
+  .footer-links{display:flex; gap:28px; font-size:0.9rem; color:#6b716f;}
+  .footer-copy{font-size:0.85rem; color:#9aa09d; font-family:'JetBrains Mono',monospace;}
+
+  @media(max-width:760px){
+    .download-section{margin:0 16px; padding:50px 26px;}
+    .container{padding:0 20px;}
+  }
+</style>
+</head>
+<body>
+
+<div class="grain-layer"></div>
+
+<nav>
+  <div class="nav-inner">
+    <div class="nav-brand">
+      <span class="nav-tri">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M12 2L22 21H2L12 2Z" fill="#15191c"/></svg>
+      </span>
+      نظام مثلث
+    </div>
+    <div class="nav-links">
+      <a href="#features">المميزات</a>
+      <a href="#download">التحميل</a>
+      <a href="#updates">التحديثات</a>
+    </div>
+    <a href="#download" class="nav-cta">تحميل البرنامج</a>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="container hero-grid">
+    <div>
+      <div class="eyebrow"><span class="dot"></span> الإصدار 1.0.0 متوفر الآن</div>
+      <h1>كاشيرك يدير محلك<br>بثلاث حركات <span class="accent">لا أكثر</span></h1>
+      <p class="hero-desc">نظام مثلث نظام كاشير ومبيعات متكامل، يبيع، يحسب، ويتابع المخزون من شاشة وحدة. بدون تعقيد، وبدون انتظار.</p>
+      <div class="hero-ctas">
+        <a href="#download" class="btn btn-primary">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14"/></svg>
+          حمّل البرنامج الآن
+        </a>
+        <a href="#updates" class="btn btn-secondary">شوف آلية التحديث</a>
+      </div>
+      <div class="trust-row">
+        <span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M9 12l2 2 4-4"/></svg> يعمل بدون إنترنت</span>
+        <span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 6v6l4 2"/></svg> تحديثات تلقائية</span>
+        <span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg> Windows و Mac</span>
+      </div>
+    </div>
+
+    <div class="hero-visual">
+      <div class="float-chip chip-sync">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z M12 6v6l4 2"/></svg>
+        تحديث متاح
+      </div>
+      <div class="float-chip chip-offline">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="9"/><path d="M9 12l2 2 4-4"/></svg>
+        تم البيع
+      </div>
+      <div class="receipt-card">
+        <div class="receipt-top">
+          <span class="tri-mark">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M12 2L22 21H2L12 2Z" fill="#d9a85c"/></svg>
+          </span>
+          <span class="receipt-status"><span class="dot"></span> متصل</span>
+        </div>
+        <div class="receipt-body">
+          <div class="receipt-line"><span class="name">قهوة عربية × 2</span><span class="val">6.00</span></div>
+          <div class="receipt-line"><span class="name">كيك تمر</span><span class="val">9.50</span></div>
+          <div class="receipt-line"><span class="name">عصير برتقال</span><span class="val">4.00</span></div>
+        </div>
+        <div class="receipt-total"><span>الإجمالي</span><span class="val">19.50 ر.س</span></div>
+        <div class="receipt-edge"></div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<div class="tri-divider container">
+  <span class="ln"></span>
+  <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L22 21H2L12 2Z"/></svg>
+  <span class="ln"></span>
+</div>
+
+<section id="features">
+  <div class="container">
+    <div class="section-head">
+      <span class="section-eyebrow">لماذا مثلث</span>
+      <h2>ثلاث زوايا، توازن واحد</h2>
+      <p class="section-sub">سمّيناه مثلث لأنه يقف على ثلاث ركائز ثابتة، لا ينقص منها شيء بدون أن يختل الباقي.</p>
+    </div>
+
+    <div class="corners-wrap">
+      <div class="corner-card">
+        <span class="corner-num">الزاوية ٠١</span>
+        <div class="corner-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+        </div>
+        <h3>بيع سريع</h3>
+        <p>شاشة بيع مباشرة بدون خطوات زايدة، توصل من اختيار الصنف للفاتورة في ثواني.</p>
+      </div>
+      <div class="corner-card">
+        <span class="corner-num">الزاوية ٠٢</span>
+        <div class="corner-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 7h-7m0 0l3-3m-3 3l3 3M4 17h7m0 0l-3-3m3 3l-3 3"/><path d="M3 12h18"/></svg>
+        </div>
+        <h3>متابعة المخزون</h3>
+        <p>كل عملية بيع تنزل من المخزون أوتوماتيكياً، وتعرف وش خلص قبل لا يخلص فعلياً.</p>
+      </div>
+      <div class="corner-card">
+        <span class="corner-num">الزاوية ٠٣</span>
+        <div class="corner-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18M7 14l4-4 4 4 5-6"/></svg>
+        </div>
+        <h3>تقارير واضحة</h3>
+        <p>مبيعات اليوم، الأكثر طلباً، وصافي الأرباح، كلها أرقام جاهزة بدون ما تحسبها يدوي.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="download">
+  <div class="download-section">
+    <div class="download-inner">
+      <div class="download-head">
+        <span class="section-eyebrow">جاهز للتثبيت</span>
+        <h2>حمّل مثلث على جهازك</h2>
+        <p>اختر نظام التشغيل، وثبّت البرنامج في أقل من دقيقتين.</p>
+      </div>
+
+      <div class="platform-grid">
+        <div class="platform-card">
+          <div class="platform-top">
+            <div class="platform-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M3 5.5L10 4.5V11.5H3V5.5M11 4.3L21 3V11.5H11V4.3M3 12.5H10V19.5L3 18.5V12.5M11 12.5H21V21L11 19.7V12.5Z"/></svg>
+            </div>
+            <div>
+              <div class="platform-title">Windows</div>
+              <div class="platform-os">Windows 10 64-bit أو أحدث</div>
+            </div>
+          </div>
+          <div class="platform-meta">
+            <span>ملف <span class="mono">.exe</span></span>
+            <span class="v-tag" id="win-version">v1.0.0</span>
+          </div>
+          <a href="#" id="win-download" class="dl-btn">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14"/></svg>
+            تحميل لـ Windows
+          </a>
+        </div>
+
+        <div class="platform-card platform-card-soon">
+          <div class="platform-top">
+            <div class="platform-icon">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.55C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
+            </div>
+            <div>
+              <div class="platform-title">macOS</div>
+              <div class="platform-os">macOS 11 Big Sur أو أحدث</div>
+            </div>
+          </div>
+          <div class="platform-meta">
+            <span>ملف <span class="mono">.dmg</span></span>
+            <span class="v-tag v-tag-soon">قريباً</span>
+          </div>
+          <button class="dl-btn dl-btn-disabled" disabled>
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+            غير متوفر حالياً
+          </button>
+        </div>
+      </div>
+
+      <div class="version-note">
+        # الإصدار الحالي: <span id="current-version-tag">1.0.0</span> &nbsp;·&nbsp; <a href="version.json" target="_blank">عرض ملف الإصدار</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="updates">
+  <div class="container">
+    <div class="section-head">
+      <span class="section-eyebrow">آلية العمل</span>
+      <h2>التحديثات توصلك، ما تروح تدور عليها</h2>
+      <p class="section-sub">البرنامج نفسه يسأل هذا الموقع: "فيه إصدار أحدث؟" — وإذا الجواب نعم، يطلعلك بكبسة وحدة.</p>
+    </div>
+
+    <div class="update-grid">
+      <div class="update-steps">
+        <div class="update-step">
+          <span class="step-marker">١</span>
+          <div class="step-text">
+            <h4>عند فتح البرنامج</h4>
+            <p>مثلث يرسل طلب بسيط لملف <span class="mono">version.json</span> الموجود على هذا الموقع.</p>
+          </div>
+        </div>
+        <div class="update-step">
+          <span class="step-marker">٢</span>
+          <div class="step-text">
+            <h4>مقارنة الإصدار</h4>
+            <p>يقارن رقم النسخة المثبتة عندك مع رقم النسخة في الملف، تلقائياً وبدون تدخل منك.</p>
+          </div>
+        </div>
+        <div class="update-step">
+          <span class="step-marker">٣</span>
+          <div class="step-text">
+            <h4>تنبيه أو تحديث</h4>
+            <p>إذا فيه نسخة أجدد، يطلع لك إشعار داخل البرنامج فيه رابط التحميل المباشر للنسخة الجديدة.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="json-preview">
+        <div class="json-bar">
+          <span class="json-dot"></span><span class="json-dot"></span><span class="json-dot"></span>
+          <span class="json-filename">version.json</span>
+        </div>
+        <div class="json-code">{<br>
+&nbsp;&nbsp;<span class="jk">"app_name"</span>: <span class="js">"نظام مثلث"</span>,<br>
+&nbsp;&nbsp;<span class="jk">"latest_version"</span>: <span class="js">"1.0.0"</span>,<br>
+&nbsp;&nbsp;<span class="jk">"release_notes"</span>: <span class="js">"..."</span>,<br>
+&nbsp;&nbsp;<span class="jk">"downloads"</span>: {<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="jk">"windows"</span>: { <span class="jk">"url"</span>: <span class="js">"..."</span> },<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="jk">"mac"</span>: { <span class="jk">"url"</span>: <span class="js">"..."</span> }<br>
+&nbsp;&nbsp;}<br>
+}</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="container footer-inner">
+    <div class="footer-brand">
+      <span class="footer-tri">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M12 2L22 21H2L12 2Z" fill="#15191c"/></svg>
+      </span>
+      نظام مثلث
+    </div>
+    <div class="footer-links">
+      <a href="#features">المميزات</a>
+      <a href="#download">التحميل</a>
+      <a href="#updates">التحديثات</a>
+    </div>
+    <div class="footer-copy">© 2026 — نظام كاشير ومبيعات متكامل</div>
+  </div>
+</footer>
+
+<script>
+  // يقرأ ملف version.json تلقائياً ويحدّث روابط التحميل وأرقام النسخة في الصفحة
+  fetch('version.json')
+    .then(r => r.json())
+    .then(data => {
+      // ويندوز: دايماً نحدّث الرابط ورقم النسخة
+      document.getElementById('win-download').href = data.downloads.windows.url;
+      document.getElementById('win-version').textContent = 'v' + data.latest_version;
+      document.getElementById('current-version-tag').textContent = data.latest_version;
+
+      // ماك: نتحقق أول إذا فيه رابط فعلي متوفر قبل ما نفعّل الزر
+      // (لو ضفت ملف dmg بالمستقبل وحدّثت version.json، البطاقة تتفعّل تلقائياً بدون أي تعديل إضافي على الصفحة)
+      const macInfo = data.downloads && data.downloads.mac;
+      if (macInfo && macInfo.url) {
+        const macCard = document.querySelector('.platform-card-soon');
+        if (macCard) {
+          macCard.classList.remove('platform-card-soon');
+          macCard.querySelector('.v-tag').classList.remove('v-tag-soon');
+          macCard.querySelector('.v-tag').textContent = 'v' + data.latest_version;
+          const btn = macCard.querySelector('.dl-btn-disabled');
+          if (btn) {
+            const link = document.createElement('a');
+            link.href = macInfo.url;
+            link.className = 'dl-btn';
+            link.innerHTML = btn.innerHTML.replace('غير متوفر حالياً', 'تحميل لـ macOS');
+            btn.replaceWith(link);
+          }
+        }
+      }
+    })
+    .catch(() => { /* في حال عدم توفر الملف لأي سبب، تبقى الصفحة بحالتها الافتراضية */ });
+</script>
+
+</body>
+</html>

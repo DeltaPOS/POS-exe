@@ -1,0 +1,22 @@
+{
+  "app_name": "نظام مثلث",
+  "latest_version": "1.1.0",
+  "release_date": "2026-06-28",
+  "release_notes": "تحديثات وتحسينات على نظام مثلث.",
+  "release_notes_en": "Updates and improvements to Mithlath POS System.",
+  "downloads": {
+    "windows": {
+      "url": "https://github.com/ali000lgl-create/POS-exe/releases/download/v1.1.0/pos-system-app-setup-1.1.0.exe",
+      "size_mb": 136,
+      "min_os": "Windows 10 64-bit"
+    },
+    "mac": {
+      "available": false,
+      "url": null,
+      "size_mb": 0,
+      "min_os": "macOS 11 (Big Sur) أو أحدث"
+    }
+  },
+  "mandatory_update": false
+}
+
