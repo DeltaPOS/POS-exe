@@ -727,7 +727,7 @@
 
 <script>
   // يقرأ ملف version.json تلقائياً ويحدّث روابط التحميل وأرقام النسخة في الصفحة
-  fetch('version.json')
+  fetch('version.json?t=' + Date.now())
     .then(r => r.json())
     .then(data => {
       // ويندوز: دايماً نحدّث الرابط ورقم النسخة
