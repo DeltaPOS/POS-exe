@@ -651,6 +651,7 @@
             <div style="display:flex; gap:8px;">
               <button class="btn btn-icon" id="scanProductFilterBtn" title="مسح بالكاميرا">📷</button>
               <select id="productCategoryFilter" style="margin:0; width:auto;"></select>
+              <button class="btn" id="bulkPrintBarcodesBtn">🏷️ طباعة باركودات متعددة</button>
               <button class="btn btn-primary" id="addProductBtn">+ منتج جديد</button>
             </div>
           </div>
@@ -1049,6 +1050,27 @@
         </div>
 
         <div class="card">
+          <h3>🏷️ إعدادات طباعة ملصقات الباركود</h3>
+          <p style="color:var(--txt-dim); font-size:12.5px; margin-top:0;">تُستخدم هذه الإعدادات كقيم افتراضية عند طباعة ملصقات الباركود من صفحة المنتجات، ويمكن تغييرها في كل مرة عند الطباعة.</p>
+          <label>مقاس الملصق الافتراضي</label>
+          <select id="setBarcodeLabelSize">
+            <option value="s25x15">صغير 25×15مم</option>
+            <option value="m38x25">متوسط 38×25مم (الأكثر شيوعاً)</option>
+            <option value="l50x30">كبير 50×30مم</option>
+            <option value="a4sheet">ورقة A4 (شبكة ملصقات)</option>
+          </select>
+          <label>عدد الأعمدة عند استخدام ورقة A4</label>
+          <input type="number" id="setBarcodeLabelCols" min="1" max="8" value="3">
+          <label>عدد النسخ الافتراضي لكل ملصق</label>
+          <input type="number" id="setBarcodeLastQty" min="1" max="500" value="12">
+          <div class="form-row">
+            <div><label style="display:flex; align-items:center; gap:8px; cursor:pointer;"><input type="checkbox" id="setBarcodeShowName" style="width:auto; margin:0;"><span>إظهار اسم المنتج على الملصق</span></label></div>
+            <div><label style="display:flex; align-items:center; gap:8px; cursor:pointer;"><input type="checkbox" id="setBarcodeShowPrice" style="width:auto; margin:0;"><span>إظهار السعر على الملصق</span></label></div>
+          </div>
+          <button class="btn" id="testBarcodePrintBtn" style="margin-top:6px;">🏷️ طباعة ملصق تجريبي</button>
+        </div>
+
+        <div class="card">
           <h3>📷 إعدادات قارئ الباركود</h3>
           <p style="color:var(--txt-dim); font-size:12.5px; margin-top:0;">
             <strong>قارئ ليزري (USB/Bluetooth):</strong> يعمل تلقائياً بمجرد توصيله — هذي الأجهزة تحاكي لوحة المفاتيح، فقط وجّه المؤشر لشاشة الكاشير وامسح المنتج مباشرة.<br><br>
@@ -1180,6 +1202,12 @@ function defaultDB(){
       scanBeep: true,
       theme: 'dark',
       requireCustomerForCredit: true,
+      // barcode label printing preferences
+      barcodeLabelSize: 'm38x25',   // s25x15 | m38x25 | l50x30 | a4sheet
+      barcodeLabelCols: 3,          // columns per row (used mainly for a4sheet)
+      barcodeShowName: true,
+      barcodeShowPrice: true,
+      barcodeLastQty: 12,
     },
     branches: [
       { id: 'b1', name: 'الفرع الرئيسي', address: '', active: true }
@@ -1360,6 +1388,95 @@ function allBarcodesFor(product){
 
 function findProductByBarcode(products, code){
   return products.find(p=> allBarcodesFor(p).includes(code));
+}
+
+// ===================== BARCODE GENERATION (unique code for products without one) =====================
+// Generates an EAN-13-style 13-digit numeric code (internal "2" prefix range, commonly
+// used for in-store/variable-weight items) with a correct check digit, and guarantees
+// it doesn't collide with any barcode already used by another product.
+function computeEAN13CheckDigit(digits12){
+  let sum = 0;
+  for(let i=0;i<12;i++){
+    const d = parseInt(digits12[i]);
+    sum += (i%2===0) ? d : d*3;
+  }
+  const mod = sum % 10;
+  return mod===0 ? 0 : 10-mod;
+}
+function generateUniqueProductBarcode(){
+  const usedCodes = new Set(DB.products.flatMap(p=>allBarcodesFor(p)));
+  for(let attempt=0; attempt<200; attempt++){
+    // "20" prefix + 10 random digits = 12 digits, then compute the 13th check digit
+    let body = '20';
+    for(let i=0;i<10;i++) body += Math.floor(Math.random()*10);
+    const code = body + computeEAN13CheckDigit(body);
+    if(!usedCodes.has(code)) return code;
+  }
+  // extremely unlikely fallback
+  return '20' + Date.now().toString().slice(-11);
+}
+
+// ===================== BARCODE RENDERING (Code128, pure SVG, no external library) =====================
+// Minimal Code128 (subset B) encoder — enough to render any barcode string made of
+// standard printable ASCII (letters/digits/punctuation), which covers all barcodes
+// generated or entered in this app. Renders directly to an SVG string so labels can be
+// previewed on-screen and sent to the browser's native print dialog like receipts are.
+const CODE128B_PATTERNS = [
+  "212222","222122","222221","121223","121322","131222","122213","122312","132212","221213",
+  "221312","231212","112232","122132","122231","113222","123122","123221","223211","221132",
+  "221231","213212","223112","312131","311222","321122","321221","312212","322112","322211",
+  "212123","212321","232121","111323","131123","131321","112313","132113","132311","211313",
+  "231113","231311","112133","112331","132131","113123","113321","133121","313121","211331",
+  "231131","213113","213311","213131","311123","311321","331121","312113","312311","332111",
+  "314111","221411","431111","111224","111422","121124","121421","141122","141221","112214",
+  "112412","122114","122411","142112","142211","241211","221114","413111","241112","134111",
+  "111242","121142","121241","114212","124112","124211","411212","421112","421211","212141",
+  "214121","412121","111143","111341","131141","114113","114311","411113","411311","113141",
+  "114131","311141","411131","211412","211214","211232","2331112"
+];
+function code128BEncode(text){
+  // returns array of pattern-indices: [START_B, ...chars, checksum, STOP]
+  const START_B = 104, STOP = 106;
+  const vals = [START_B];
+  for(let i=0;i<text.length;i++){
+    const code = text.charCodeAt(i) - 32;
+    if(code<0 || code>94) return null; // unsupported char
+    vals.push(code);
+  }
+  let checksum = START_B;
+  for(let i=1;i<vals.length;i++) checksum += vals[i]*i;
+  vals.push(checksum % 103);
+  vals.push(STOP);
+  return vals;
+}
+// Renders a barcode as an SVG string. Falls back gracefully if the text has unsupported chars.
+function renderBarcodeSVG(text, opts){
+  opts = opts || {};
+  const barHeight = opts.height || 45;
+  const barWidth = opts.barWidth || 1.6;
+  const showText = opts.showText !== false;
+  const vals = code128BEncode(String(text));
+  if(!vals){
+    return `<svg viewBox="0 0 200 60" style="width:100%; height:${barHeight}px;"><text x="100" y="30" text-anchor="middle" font-size="11" fill="#999">باركود غير صالح للطباعة</text></svg>`;
+  }
+  let x = 0;
+  const bars = [];
+  vals.forEach(v=>{
+    const pattern = CODE128B_PATTERNS[v];
+    for(let i=0;i<pattern.length;i++){
+      const w = parseInt(pattern[i]) * barWidth;
+      if(i%2===0){ // even index = bar (black), odd = space
+        bars.push(`<rect x="${x.toFixed(2)}" y="0" width="${w.toFixed(2)}" height="${barHeight}" fill="#000"/>`);
+      }
+      x += w;
+    }
+  });
+  const totalWidth = x;
+  const svgHeight = barHeight + (showText ? 16 : 0);
+  return `<svg viewBox="0 0 ${totalWidth.toFixed(2)} ${svgHeight}" style="width:100%; height:auto; display:block;">
+    ${bars.join('')}
+    ${showText ? `<text x="${(totalWidth/2).toFixed(2)}" y="${barHeight+13}" text-anchor="middle" font-size="12" font-family="'Courier New',monospace" fill="#000" letter-spacing="1">${text}</text>` : ''}
+  </svg>`;
 }
 function getCustomer(id){ return DB.customers.find(c=>c.id===id); }
 function getSupplier(id){ return DB.suppliers.find(s=>s.id===id); }
@@ -2987,12 +3104,27 @@ function renderProductsTable(){
         <td>${p.active ? '<span class="badge green">نشط</span>' : '<span class="badge gray">معطّل</span>'}</td>
         <td>
           <button class="btn btn-sm edit-prod" data-id="${p.id}">تعديل</button>
+          <button class="btn btn-sm print-barcode-prod" data-id="${p.id}" title="طباعة ملصقات باركود">🏷️ باركود</button>
           <button class="btn btn-sm btn-danger del-prod" data-id="${p.id}">حذف</button>
         </td>
       </tr>`;
   }).join('');
 
   tbody.querySelectorAll('.edit-prod').forEach(b=>b.addEventListener('click', ()=>openProductModal(b.dataset.id)));
+  tbody.querySelectorAll('.print-barcode-prod').forEach(b=>b.addEventListener('click', ()=>{
+    const p = getProduct(b.dataset.id);
+    if(!p) return;
+    if(!p.barcode){
+      confirmAction('هذا المنتج ليس له باركود بعد. هل تريد توليد باركود جديد له الآن؟', ()=>{
+        p.barcode = generateUniqueProductBarcode();
+        saveDB();
+        renderProductsPage();
+        openBarcodePrintModal([{ id:p.id, name:p.name, price:p.price, barcode:p.barcode }]);
+      });
+      return;
+    }
+    openBarcodePrintModal([{ id:p.id, name:p.name, price:p.price, barcode:p.barcode }]);
+  }));
   tbody.querySelectorAll('.del-prod').forEach(b=>b.addEventListener('click', ()=>{
     confirmAction('هل تريد حذف هذا المنتج نهائياً؟', ()=>{
       DB.products = DB.products.filter(p=>p.id!==b.dataset.id);
@@ -3133,7 +3265,11 @@ function openProductModal(productId){
     <label>الباركود الأساسي</label>
     <div style="display:flex; gap:6px;">
       <input type="text" id="pf_barcode" value="${p.barcode||''}" style="margin:0;">
-      <button type="button" class="btn btn-icon" id="scanProductFieldBtn" style="margin-bottom:12px;">📷</button>
+      <button type="button" class="btn btn-icon" id="generateBarcodeBtn" title="توليد باركود تلقائي" style="margin-bottom:12px;">✨</button>
+      <button type="button" class="btn btn-icon" id="scanProductFieldBtn" title="مسح بالكاميرا" style="margin-bottom:12px;">📷</button>
+    </div>
+    <div style="display:flex; justify-content:flex-end; margin-top:-8px; margin-bottom:12px;">
+      <button type="button" class="btn btn-sm" id="printThisBarcodeBtn" style="${editing && p.barcode ? '' : 'display:none;'}">🖨️ طباعة ملصقات هذا الباركود</button>
     </div>
 
     <div style="border-top:1px solid var(--line); margin-top:2px; padding-top:10px; margin-bottom:6px;">
@@ -3215,6 +3351,27 @@ function openProductModal(productId){
   document.getElementById('scanExtraBarcodeBtn').addEventListener('click', ()=>openCameraScanner('product-extra-barcode'));
   document.getElementById('cancelProd').addEventListener('click', closeModal);
   document.getElementById('scanProductFieldBtn').addEventListener('click', ()=>openCameraScanner('product-field'));
+  document.getElementById('generateBarcodeBtn').addEventListener('click', ()=>{
+    const field = document.getElementById('pf_barcode');
+    if(field.value.trim()){
+      confirmAction('هذا المنتج لديه باركود بالفعل. هل تريد استبداله بباركود جديد تلقائي؟', ()=>{
+        field.value = generateUniqueProductBarcode();
+        toast('تم توليد باركود جديد — لا تنسَ حفظ المنتج');
+        document.getElementById('printThisBarcodeBtn').style.display = editing ? '' : 'none';
+      });
+      return;
+    }
+    field.value = generateUniqueProductBarcode();
+    toast('تم توليد باركود جديد — لا تنسَ حفظ المنتج');
+  });
+  const printThisBarcodeBtn = document.getElementById('printThisBarcodeBtn');
+  printThisBarcodeBtn.addEventListener('click', ()=>{
+    const code = document.getElementById('pf_barcode').value.trim();
+    if(!code){ toast('لا يوجد باركود لهذا المنتج بعد', 'error'); return; }
+    const currentName = document.getElementById('pf_name').value.trim() || p.name || 'منتج';
+    const currentPrice = parseFloat(document.getElementById('pf_price').value)||0;
+    openBarcodePrintModal([{ id: productId, name: currentName, price: currentPrice, barcode: code }]);
+  });
   document.getElementById('pf_hasExpiry').addEventListener('change', (e)=>{
     document.getElementById('expiryFields').style.display = e.target.checked ? 'block' : 'none';
   });
@@ -3317,6 +3474,198 @@ function openProductModal(productId){
 document.getElementById('addProductBtn').addEventListener('click', ()=>openProductModal(null));
 document.getElementById('productSearchBox').addEventListener('input', renderProductsTable);
 document.getElementById('productCategoryFilter').addEventListener('change', renderProductsTable);
+
+// ===================== BULK BARCODE LABEL PRINTING =====================
+document.getElementById('bulkPrintBarcodesBtn').addEventListener('click', openBulkBarcodeSelectModal);
+
+function openBulkBarcodeSelectModal(){
+  const noBarcodeCount = DB.products.filter(p=>!p.barcode).length;
+  openModal(`
+    <h3>🏷️ طباعة باركودات متعددة</h3>
+    <p style="font-size:12px; color:var(--txt-dim); margin-top:-8px;">اختر المنتجات التي تريد طباعة ملصقات باركود لها. المنتجات بدون باركود سيُولَّد لها باركود تلقائياً عند التحديد.</p>
+    <div style="display:flex; gap:8px; margin-bottom:10px;">
+      <input type="text" id="bulkBcSearch" placeholder="🔍 بحث بالاسم..." style="margin:0; flex:1;">
+      <button class="btn btn-sm" id="bulkBcSelectAll">تحديد الكل</button>
+      <button class="btn btn-sm" id="bulkBcSelectNone">إلغاء التحديد</button>
+    </div>
+    ${noBarcodeCount>0 ? `<div style="font-size:11.5px; color:var(--warn); margin-bottom:8px;">⚠️ يوجد ${noBarcodeCount} منتج بدون باركود — سيُولَّد له باركود جديد تلقائياً عند اختياره.</div>` : ''}
+    <div id="bulkBcList" style="max-height:280px; overflow-y:auto; border:1px solid var(--line); border-radius:8px; padding:6px;"></div>
+    <div class="modal-actions">
+      <button class="btn" id="cancelBulkBc">إلغاء</button>
+      <button class="btn btn-primary" id="proceedBulkBc">التالي: خيارات الطباعة</button>
+    </div>
+  `);
+
+  function renderList(){
+    const search = (document.getElementById('bulkBcSearch').value||'').trim().toLowerCase();
+    let list = [...DB.products];
+    if(search) list = list.filter(p=>p.name.toLowerCase().includes(search));
+    const wrap = document.getElementById('bulkBcList');
+    if(list.length===0){ wrap.innerHTML = `<div class="empty-state"><div class="ic">📦</div>لا توجد منتجات</div>`; return; }
+    wrap.innerHTML = list.map(p=>`
+      <label style="display:flex; align-items:center; gap:8px; padding:7px 6px; cursor:pointer; border-bottom:1px solid var(--panel-2);">
+        <input type="checkbox" class="bulk-bc-check" data-id="${p.id}" style="width:auto; margin:0;">
+        <span style="font-size:16px;">${p.icon||'📦'}</span>
+        <span style="flex:1; font-size:13px;">${p.name}</span>
+        <span style="font-size:11px; color:${p.barcode?'var(--txt-dim)':'var(--warn)'};">${p.barcode || 'بدون باركود'}</span>
+      </label>
+    `).join('');
+  }
+  renderList();
+  document.getElementById('bulkBcSearch').addEventListener('input', renderList);
+  document.getElementById('bulkBcSelectAll').addEventListener('click', ()=>{
+    document.querySelectorAll('.bulk-bc-check').forEach(c=>c.checked=true);
+  });
+  document.getElementById('bulkBcSelectNone').addEventListener('click', ()=>{
+    document.querySelectorAll('.bulk-bc-check').forEach(c=>c.checked=false);
+  });
+  document.getElementById('cancelBulkBc').addEventListener('click', closeModal);
+  document.getElementById('proceedBulkBc').addEventListener('click', ()=>{
+    const ids = Array.from(document.querySelectorAll('.bulk-bc-check:checked')).map(c=>c.dataset.id);
+    if(ids.length===0){ toast('اختر منتجاً واحداً على الأقل', 'error'); return; }
+    // generate barcodes for any selected product missing one
+    let generatedAny = false;
+    ids.forEach(id=>{
+      const p = getProduct(id);
+      if(p && !p.barcode){ p.barcode = generateUniqueProductBarcode(); generatedAny = true; }
+    });
+    if(generatedAny){ saveDB(); renderProductsPage(); }
+    const items = ids.map(id=>{
+      const p = getProduct(id);
+      return { id:p.id, name:p.name, price:p.price, barcode:p.barcode };
+    });
+    openBarcodePrintModal(items);
+  });
+}
+
+// Label size presets: [width_mm, height_mm, label] — used both for on-screen preview sizing
+// and for the @page CSS sent to the print window.
+const BARCODE_LABEL_SIZES = {
+  s25x15: { w:25, h:15, label:'صغير 25×15مم' },
+  m38x25: { w:38, h:25, label:'متوسط 38×25مم (الأكثر شيوعاً)' },
+  l50x30: { w:50, h:30, label:'كبير 50×30مم' },
+  a4sheet:{ w:0,  h:0,  label:'ورقة A4 (شبكة ملصقات)' },
+};
+
+function openBarcodePrintModal(items){
+  // items: [{id, name, price, barcode}]
+  const settings = DB.settings;
+  openModal(`
+    <h3>🖨️ طباعة ملصقات الباركود</h3>
+    <p style="font-size:12px; color:var(--txt-dim); margin-top:-8px;">${items.length} منتج محدد. حدد عدد النسخ لكل ملصق وخيارات العرض.</p>
+    <div class="form-row">
+      <div><label>عدد النسخ لكل منتج</label><input type="number" id="bcQty" min="1" max="500" value="${settings.barcodeLastQty||12}"></div>
+      <div><label>مقاس الملصق</label>
+        <select id="bcSize">
+          ${Object.entries(BARCODE_LABEL_SIZES).map(([k,v])=>`<option value="${k}" ${settings.barcodeLabelSize===k?'selected':''}>${v.label}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div><label style="display:flex; align-items:center; gap:8px; cursor:pointer;"><input type="checkbox" id="bcShowName" style="width:auto; margin:0;" ${settings.barcodeShowName?'checked':''}><span>إظهار اسم المنتج</span></label></div>
+      <div><label style="display:flex; align-items:center; gap:8px; cursor:pointer;"><input type="checkbox" id="bcShowPrice" style="width:auto; margin:0;" ${settings.barcodeShowPrice?'checked':''}><span>إظهار السعر</span></label></div>
+    </div>
+    <div id="bcColsField" style="${settings.barcodeLabelSize==='a4sheet'?'':'display:none;'}">
+      <label>عدد الأعمدة بالورقة</label>
+      <input type="number" id="bcCols" min="1" max="8" value="${settings.barcodeLabelCols||3}">
+    </div>
+    <div style="background:var(--panel-2); border-radius:8px; padding:10px; margin:10px 0; font-size:11.5px; color:var(--txt-dim);">
+      إجمالي الملصقات التي ستُطبع: <strong id="bcTotalCount" style="color:var(--txt);">—</strong>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" id="cancelBcPrint">إلغاء</button>
+      <button class="btn btn-primary" id="doBcPrint">🖨️ طباعة</button>
+    </div>
+  `);
+
+  function updateTotal(){
+    const qty = Math.max(1, parseInt(document.getElementById('bcQty').value)||1);
+    document.getElementById('bcTotalCount').textContent = (qty * items.length) + ' ملصق';
+  }
+  document.getElementById('bcQty').addEventListener('input', updateTotal);
+  updateTotal();
+
+  document.getElementById('bcSize').addEventListener('change', (e)=>{
+    document.getElementById('bcColsField').style.display = e.target.value==='a4sheet' ? '' : 'none';
+  });
+
+  document.getElementById('cancelBcPrint').addEventListener('click', closeModal);
+  document.getElementById('doBcPrint').addEventListener('click', ()=>{
+    const qty = Math.max(1, Math.min(500, parseInt(document.getElementById('bcQty').value)||1));
+    const sizeKey = document.getElementById('bcSize').value;
+    const showName = document.getElementById('bcShowName').checked;
+    const showPrice = document.getElementById('bcShowPrice').checked;
+    const cols = Math.max(1, Math.min(8, parseInt(document.getElementById('bcCols').value)||3));
+
+    // remember preferences for next time
+    DB.settings.barcodeLastQty = qty;
+    DB.settings.barcodeLabelSize = sizeKey;
+    DB.settings.barcodeLabelCols = cols;
+    DB.settings.barcodeShowName = showName;
+    DB.settings.barcodeShowPrice = showPrice;
+    saveDB();
+
+    closeModal();
+    printBarcodeLabels(items, { qty, sizeKey, showName, showPrice, cols });
+  });
+}
+
+function printBarcodeLabels(items, opts){
+  const size = BARCODE_LABEL_SIZES[opts.sizeKey] || BARCODE_LABEL_SIZES.m38x25;
+  const isSheet = opts.sizeKey === 'a4sheet';
+
+  // build one label cell per copy per item
+  const labelCells = [];
+  items.forEach(it=>{
+    for(let i=0;i<opts.qty;i++){
+      labelCells.push(`
+        <div class="bc-label">
+          ${opts.showName ? `<div class="bc-name">${it.name}</div>` : ''}
+          <div class="bc-barcode">${renderBarcodeSVG(it.barcode, { height: isSheet?38:34, barWidth: isSheet?1.3:1.1 })}</div>
+          ${opts.showPrice ? `<div class="bc-price">${fmt(it.price)} ${DB.settings.currency}</div>` : ''}
+        </div>
+      `);
+    }
+  });
+
+  const w = window.open('', '_blank', 'width=480,height=650');
+  if(!w){ toast('يرجى السماح بالنوافذ المنبثقة لتفعيل الطباعة', 'error'); return; }
+
+  let pageCss, containerStyle, labelStyle;
+  if(isSheet){
+    pageCss = '@page{ size:A4; margin:10mm; }';
+    containerStyle = `display:grid; grid-template-columns:repeat(${opts.cols},1fr); gap:4mm;`;
+    labelStyle = `border:1px dashed #bbb; border-radius:2mm; padding:2mm; display:flex; flex-direction:column; align-items:center; justify-content:center; page-break-inside:avoid; min-height:22mm;`;
+  } else {
+    pageCss = `@page{ size:${size.w}mm ${size.h}mm; margin:0; }`;
+    containerStyle = `display:block;`;
+    labelStyle = `width:${size.w}mm; height:${size.h}mm; box-sizing:border-box; padding:1.5mm; display:flex; flex-direction:column; align-items:center; justify-content:center; page-break-after:always;`;
+  }
+
+  w.document.write(`
+    <html dir="rtl">
+    <head>
+      <meta charset="utf-8">
+      <title>ملصقات باركود</title>
+      <style>
+        * { box-sizing:border-box; }
+        body{ margin:0; font-family:'Tahoma','Segoe UI',sans-serif; }
+        .bc-label{ ${labelStyle} overflow:hidden; text-align:center; }
+        .bc-name{ font-size:${isSheet?'9px':'7.5px'}; font-weight:bold; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; margin-bottom:0.5mm; }
+        .bc-barcode{ width:92%; }
+        .bc-barcode svg{ width:100%; height:auto; }
+        .bc-price{ font-size:${isSheet?'9px':'8px'}; font-weight:bold; margin-top:0.5mm; }
+        #bcContainer{ ${containerStyle} }
+        ${pageCss}
+      </style>
+    </head>
+    <body onload="window.print(); setTimeout(()=>window.close(), 300);">
+      <div id="bcContainer">${labelCells.join('')}</div>
+    </body>
+    </html>
+  `);
+  w.document.close();
+}
 
 function renderCategoriesList(){
   const wrap = document.getElementById('categoriesList');
@@ -3901,6 +4250,11 @@ function renderSettingsPage(){
   document.getElementById('setReceiptFooter').value = DB.settings.receiptFooter;
   document.getElementById('setPrintWidth').value = DB.settings.printWidth || '80';
   document.getElementById('setPrintCopies').value = DB.settings.printCopies || 1;
+  document.getElementById('setBarcodeLabelSize').value = DB.settings.barcodeLabelSize || 'm38x25';
+  document.getElementById('setBarcodeLabelCols').value = DB.settings.barcodeLabelCols || 3;
+  document.getElementById('setBarcodeLastQty').value = DB.settings.barcodeLastQty || 12;
+  document.getElementById('setBarcodeShowName').checked = DB.settings.barcodeShowName !== false;
+  document.getElementById('setBarcodeShowPrice').checked = DB.settings.barcodeShowPrice !== false;
   document.getElementById('setScanBeep').value = DB.settings.scanBeep ? '1':'0';
   document.getElementById('setTheme').value = DB.settings.theme || 'dark';
   document.getElementById('setRequireCustomerForCredit').checked = DB.settings.requireCustomerForCredit !== false;
@@ -4014,6 +4368,11 @@ document.getElementById('saveSettingsBtn').addEventListener('click', ()=>{
   DB.settings.receiptFooter = document.getElementById('setReceiptFooter').value;
   DB.settings.printWidth = document.getElementById('setPrintWidth').value;
   DB.settings.printCopies = Math.max(1, Math.min(5, parseInt(document.getElementById('setPrintCopies').value)||1));
+  DB.settings.barcodeLabelSize = document.getElementById('setBarcodeLabelSize').value;
+  DB.settings.barcodeLabelCols = Math.max(1, Math.min(8, parseInt(document.getElementById('setBarcodeLabelCols').value)||3));
+  DB.settings.barcodeLastQty = Math.max(1, Math.min(500, parseInt(document.getElementById('setBarcodeLastQty').value)||12));
+  DB.settings.barcodeShowName = document.getElementById('setBarcodeShowName').checked;
+  DB.settings.barcodeShowPrice = document.getElementById('setBarcodeShowPrice').checked;
   DB.settings.scanBeep = document.getElementById('setScanBeep').value==='1';
   DB.settings.theme = document.getElementById('setTheme').value;
   DB.settings.requireCustomerForCredit = document.getElementById('setRequireCustomerForCredit').checked;
@@ -4026,6 +4385,19 @@ document.getElementById('saveSettingsBtn').addEventListener('click', ()=>{
   applyBranding();
   applyTheme();
   toast('تم حفظ الإعدادات بنجاح');
+});
+
+document.getElementById('testBarcodePrintBtn').addEventListener('click', ()=>{
+  printBarcodeLabels(
+    [{ id:'test', name:'منتج تجريبي', price:10, barcode:'2012345678905' }],
+    {
+      qty: 1,
+      sizeKey: document.getElementById('setBarcodeLabelSize').value,
+      showName: document.getElementById('setBarcodeShowName').checked,
+      showPrice: document.getElementById('setBarcodeShowPrice').checked,
+      cols: Math.max(1, Math.min(8, parseInt(document.getElementById('setBarcodeLabelCols').value)||3)),
+    }
+  );
 });
 
 document.getElementById('testPrintBtn').addEventListener('click', ()=>{
@@ -5780,4 +6152,4 @@ function renderPayrollTable(){
     </script>
 
 </body>
-            </html>
+  </html>
