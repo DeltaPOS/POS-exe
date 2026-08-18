@@ -1,30 +1,24 @@
-const { app, BrowserWindow, dialog } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain } = require('electron');
 const { autoUpdater } = require('electron-updater');
+const path = require('path');
 
 let win;
 
-function createWindow () {
+function createWindow() {
   win = new BrowserWindow({
     width: 1200,
     height: 800,
-    fullscreen: false,        // لكي يظهر شريط الإغلاق والتصغير
-    frame: true,              // إبقاء الإطار ليظهر الشريط
-    autoHideMenuBar: true,    // إخفاء القوائم (File, Edit...)
     webPreferences: {
-      nodeIntegration: true,
-      contextIsolation: false
+      nodeIntegration: true, 
+      contextIsolation: false 
     }
   });
 
-  // التأكيد على إخفاء القوائم تماماً
-  win.setMenuBarVisibility(false);
-  
-  // تكبير النافذة لتملا الشاشة
-  win.maximize(); 
+  win.maximize();
+  // تأكد من أن مسار ملف واجهة نقطة البيع (POS) صحيح
+  win.loadFile('pos-system.html'); 
 
-  win.loadFile('pos-system.html');
-
-  // التحقق من التحديث عند فتح البرنامج
+  // بدء التحقق من التحديثات بمجرد أن تكون النافذة جاهزة للعرض
   win.once('ready-to-show', () => {
     autoUpdater.checkForUpdatesAndNotify();
   });
@@ -32,42 +26,72 @@ function createWindow () {
 
 app.whenReady().then(createWindow);
 
+// ==========================================
+// إعدادات التحديث التلقائي (Auto Updater)
+// ==========================================
+
+// 1. عند بدء البحث عن تحديثات
+autoUpdater.on('checking-for-update', () => {
+  if (win) win.webContents.send('update-message', 'جاري البحث عن تحديثات...');
+});
+
+// 2. عند العثور على تحديث
+autoUpdater.on('update-available', (info) => {
+  if (win) win.webContents.send('update-message', 'تم العثور على تحديث جديد. جاري التحميل...');
+});
+
+// 3. في حال عدم وجود تحديث
+autoUpdater.on('update-not-available', (info) => {
+  if (win) win.webContents.send('update-message', 'النظام محدث لآخر إصدار.');
+});
+
+// 4. معالجة الأخطاء (الحل الجذري لمعرفة سبب توقف التحديث وعدم تعليقه بصمت)
+autoUpdater.on('error', (error) => {
+  let log_message = "حدث خطأ أثناء التحديث: " + (error == null ? "خطأ مجهول" : (error.stack || error).toString());
+  if (win) win.webContents.send('update-message', log_message);
+  console.error(log_message);
+});
+
+// 5. تتبع نسبة التحميل وإرسالها للواجهة الأمامية
+autoUpdater.on('download-progress', (progressObj) => {
+  let log_message = `سرعة التحميل: ${progressObj.bytesPerSecond} - تم تحميل ${progressObj.percent}%`;
+  if (win) win.webContents.send('download-progress', progressObj.percent);
+});
+
+// 6. عند اكتمال التحميل والوصول إلى 100% (حل مشكلة التعليق والنافذة المخفية)
+autoUpdater.on('update-downloaded', (info) => {
+  if (win) win.webContents.send('update-message', 'تم اكتمال التحميل بنسبة 100%. في انتظار التأكيد للتثبيت.');
+
+  const dialogOpts = {
+    type: 'info',
+    buttons: ['إعادة التشغيل والتثبيت الآن', 'لاحقاً'],
+    title: 'تحديث نظام المبيعات',
+    message: 'إصدار جديد متاح للتثبيت',
+    detail: 'تم تنزيل الإصدار الجديد بالكامل. هل تريد إغلاق النظام الآن لتثبيته؟'
+  };
+
+  // ربط النافذة المنبثقة بالنافذة الرئيسية (win) لضمان عدم ظهورها في الخلفية
+  dialog.showMessageBox(win, dialogOpts).then((returnValue) => {
+    if (returnValue.response === 0) {
+      // المعامل الأول: false (لإظهار واجهة التثبيت للمستخدم وعدم جعله صامتاً تماماً)
+      // المعامل الثاني: true (لإعادة تشغيل التطبيق تلقائياً بعد الانتهاء من التثبيت)
+      autoUpdater.quitAndInstall(false, true);
+    }
+  });
+});
+
+// ==========================================
+// أحداث إغلاق التطبيق
+// ==========================================
+
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit();
   }
 });
 
-// --- نظام التحديث التفاعلي ---
-autoUpdater.on('update-available', (info) => {
-  dialog.showMessageBox(win, {
-    type: 'info',
-    title: 'تحديث جديد متاح',
-    message: 'يوجد تحديث جديد لنظام مبيعات مثلث. هل تود تحميله الآن؟',
-    buttons: ['نعم', 'لا']
-  }).then((result) => {
-    if (result.response === 0) {
-      autoUpdater.downloadUpdate();
-    }
-  });
-});
-
-autoUpdater.on('download-progress', (progressObj) => {
-  let log_message = "جاري تحميل التحديث: " + Math.round(progressObj.percent) + "%";
-  if (win && win.webContents) {
-    win.webContents.send('update-message', log_message);
+app.on('activate', () => {
+  if (BrowserWindow.getAllWindows().length === 0) {
+    createWindow();
   }
-});
-
-autoUpdater.on('update-downloaded', () => {
-  dialog.showMessageBox(win, {
-    type: 'question',
-    title: 'جاهز للتثبيت',
-    message: 'تم تحميل التحديث. هل تود إعادة تشغيل البرنامج وتثبيته الآن؟',
-    buttons: ['إعادة تشغيل وتثبيت', 'لاحقاً']
-  }).then((result) => {
-    if (result.response === 0) {
-      autoUpdater.quitAndInstall();
-    }
-  });
 });
